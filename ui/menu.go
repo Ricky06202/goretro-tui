@@ -3,14 +3,34 @@ package ui
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
 	"goretro-tui/games"
 )
 
+func stringWidth(s string) int {
+	w := 0
+	for _, r := range s {
+		if r >= 0x1000 {
+			w += 2
+		} else {
+			w += 1
+		}
+	}
+	return w
+}
+
+func newSnake() tea.Model  { return games.NewSnake() }
+func newTetris() tea.Model { return games.NewTetris() }
+func newPong() tea.Model  { return games.NewPong() }
+func newMemory() tea.Model { return games.NewMemory() }
+func newWordle() tea.Model { return games.NewWordle() }
+
 type GameMenu struct {
 	cursor   int
-	options []string
+	options  []string
 	submodel tea.Model
+	quit     bool
 }
 
 func NewGameMenu() *GameMenu {
@@ -20,6 +40,7 @@ func NewGameMenu() *GameMenu {
 			"🧱  Tetris",
 			"🏓  Pong",
 			"🧠  Memory",
+			"📝  Wordle",
 			"👋  Salir",
 		},
 		cursor: 0,
@@ -46,29 +67,38 @@ func (m *GameMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k":
+			if m.quit {
+				return m, tea.Quit
+			}
+			m.quit = true
+			return m, nil
+		case "up", "k", "w":
+			m.quit = false
 			if m.cursor > 0 {
 				m.cursor--
 			}
-		case "down", "j":
+		case "down", "j", "s":
+			m.quit = false
 			if m.cursor < len(m.options)-1 {
 				m.cursor++
 			}
 		case "enter":
+			m.quit = false
 			switch m.cursor {
 			case 0:
-				m.submodel = games.NewSnake()
+				m.submodel = newSnake()
 				return m, m.submodel.Init()
 			case 1:
-				m.submodel = games.NewTetris()
+				m.submodel = newTetris()
 				return m, m.submodel.Init()
 			case 2:
-				m.submodel = games.NewPong()
+				m.submodel = newPong()
 				return m, m.submodel.Init()
 			case 3:
-				m.submodel = games.NewMemory()
+				m.submodel = newMemory()
 			case 4:
+				m.submodel = newWordle()
+			case 5:
 				return m, tea.Quit
 			}
 		}
@@ -83,36 +113,32 @@ func (m *GameMenu) View() string {
 
 	s := strings.Builder{}
 
-	s.WriteString(TitleStyle.Render("🎮 GORETRO TUI 🎮"))
+	title := TitleStyle.Render("🎮 GORETRO TUI 🎮")
+	s.WriteString("\n")
+	s.WriteString(title)
 	s.WriteString("\n\n")
 
 	menu := strings.Builder{}
 	for i, option := range m.options {
-		cols := stringWidth(option)
-		padding := 12 - cols
-		padded := option + strings.Repeat(" ", padding)
+		padded := option + strings.Repeat(" ", 20-len(option))
 		if m.cursor == i {
-			menu.WriteString(SelectedStyle.Render("▶ " + padded))
+			menu.WriteString(SelectedStyle.Render(padded))
 		} else {
-			menu.WriteString(NormalStyle.Render("  " + padded))
+			menu.WriteString(NormalStyle.Render(padded))
 		}
 		menu.WriteString("\n")
 	}
 
-	s.WriteString(ContainerStyle.Render(menu.String()))
-	s.WriteString(HelpStyle.Render("↑/↓ navegar · Enter: seleccionar · q: salir"))
+	menuStr := menu.String()
+	menuBox := BoxStyle.Align(lipgloss.Center).Render(menuStr)
+	s.WriteString(menuBox)
+	s.WriteString("\n")
+	s.WriteString(HelpStyle.Render("↑/↓ or WASD: navegar  •  Enter: seleccionar  •  Q: salir"))
+
+	if m.quit {
+		s.WriteString("\n")
+		s.WriteString(SelectedStyle.Render("Presiona Q otra vez para confirmar"))
+	}
 
 	return s.String()
-}
-
-func stringWidth(s string) int {
-	w := 0
-	for _, r := range s {
-		if r >= 0x1000 {
-			w += 2
-		} else {
-			w += 1
-		}
-	}
-	return w
 }

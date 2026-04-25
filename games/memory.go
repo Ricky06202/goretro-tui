@@ -3,9 +3,11 @@ package games
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var symbols = []rune("🎮🔥🌙⭐🐱🌵🎸🍕")
@@ -14,11 +16,10 @@ type Memory struct {
 	cards     []rune
 	flipped   []int
 	matched   []int
-	selected int
+	selected  int
 	width    int
 	height   int
 	moves    int
-	gameOver bool
 	win      bool
 	waiting  bool
 }
@@ -82,19 +83,19 @@ func (m *Memory) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil, tea.Quit
 		case "r":
 			return NewMemory(), nil
-		case "up", "k", "w", "K", "W":
+		case "up", "k", "w":
 			if m.selected >= m.width {
 				m.selected -= m.width
 			}
-		case "down", "j", "s", "J", "S":
+		case "down", "j", "s":
 			if m.selected < 12 {
 				m.selected += m.width
 			}
-		case "left", "h", "a", "A":
+		case "left", "h", "a":
 			if m.selected%m.width > 0 {
 				m.selected--
 			}
-		case "right", "l", "d", "D":
+		case "right", "l", "d":
 			if m.selected%m.width < m.width-1 {
 				m.selected++
 			}
@@ -131,43 +132,39 @@ func contains(slice []int, val int) bool {
 }
 
 func (m *Memory) View() string {
-	if m.win {
-		return fmt.Sprintf(`
-╔═══════════════════╗
-║   ¡GANASTE!   ║
-║  Movidas: %d    ║
-╚═══════════════════╝
+	cellWidth := 13
 
-r: reiniciar  q: menu
-`, m.moves)
-	}
-
-	status := ""
-	if m.waiting {
-		status = " (espera...)"
-	}
-
-	s := fmt.Sprintf("🧠 MEMORY%s  Movidas: %d\n\n", status, m.moves)
-
+	var grid strings.Builder
 	for y := 0; y < m.height; y++ {
+		grid.WriteString("│")
 		for x := 0; x < m.width; x++ {
 			idx := y*m.width + x
 			c := '?'
-			if contains(m.flipped, idx) {
+			if contains(m.flipped, idx) || contains(m.matched, idx) {
 				c = m.cards[idx]
-			} else if contains(m.matched, idx) {
-				c = m.cards[idx]
-				if idx == m.selected {
-					c = '◉'
-				}
 			} else if idx == m.selected && !m.waiting {
 				c = '◉'
 			}
-			s += string(c) + "  "
+			cell := fmt.Sprintf("%-*c", cellWidth-1, c)
+			grid.WriteString(cell)
 		}
-		s += "\n"
+		grid.WriteString("│\n")
 	}
 
-	s += "\n↑/↓/←/→ or WASD: mover  Enter: voltear  q: menu"
-	return s
+	gridStr := BoxStyle.Width(60).Align(lipgloss.Center).Render(grid.String())
+
+	statusMsg := ""
+	if m.waiting {
+		statusMsg = "(espera...)"
+	}
+	headerTitle := TitleStyle.Render("🧠 MEMORY")
+	headerScore := HeaderScoreStyle.Render(fmt.Sprintf("Movidas: %d  %s", m.moves, statusMsg))
+
+	if m.win {
+		winBox := BoxStyle.Width(25).Align(lipgloss.Center)
+		content := fmt.Sprintf("\n\n  ¡GANASTE!\n\n  Movidas: %d\n\n", m.moves)
+		return headerTitle + "\n" + headerScore + "\n\n" + winBox.Render(content) + "\n" + HelpStyle.Render("R: reiniciar  Q: menu")
+	}
+
+	return headerTitle + "\n" + headerScore + "\n\n" + gridStr + "\n" + HelpStyle.Render("↑/↓/←/→ or WASD: mover  •  Enter: voltear  •  R: reiniciar  •  Q: menu")
 }

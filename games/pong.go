@@ -2,9 +2,11 @@ package games
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Pong struct {
@@ -20,14 +22,14 @@ type Pong struct {
 
 func NewPong() *Pong {
 	return &Pong{
-		ballX:     30,
+		ballX:     25,
 		ballY:     10,
 		ballVX:    1,
 		ballVY:    1,
 		paddle1Y: 8,
 		paddle2Y: 8,
-		width:    60,
-		height:   20,
+		width:    40,
+		height:   18,
 	}
 }
 
@@ -89,37 +91,15 @@ func (p *Pong) move() {
 
 	if p.ballY <= 0 || p.ballY >= p.height-1 {
 		p.ballVY = -p.ballVY
-		if p.ballY < 0 {
-			p.ballY = 0
-		}
-		if p.ballY >= p.height-1 {
-			p.ballY = p.height - 1
-		}
 	}
 
 	if p.ballX == 2 && p.ballY >= p.paddle1Y && p.ballY <= p.paddle1Y+3 {
 		p.ballVX = -p.ballVX
 		p.ballX = 3
-		dy := p.ballY - (p.paddle1Y + 1)
-		if dy == 0 {
-			p.ballVY = -1
-		} else if dy == 1 {
-			p.ballVY = 0
-		} else {
-			p.ballVY = 1
-		}
 	}
 	if p.ballX == p.width-3 && p.ballY >= p.paddle2Y && p.ballY <= p.paddle2Y+3 {
 		p.ballVX = -p.ballVX
 		p.ballX = p.width - 4
-		dy := p.ballY - (p.paddle2Y + 1)
-		if dy == 0 {
-			p.ballVY = -1
-		} else if dy == 1 {
-			p.ballVY = 0
-		} else {
-			p.ballVY = 1
-		}
 	}
 
 	if p.ballX <= 0 {
@@ -144,29 +124,7 @@ func (p *Pong) resetBall() {
 }
 
 func (p *Pong) View() string {
-	if p.gameOver {
-		winner := "Jugador 1"
-		if p.score2 >= 5 {
-			winner = "Jugador 2"
-		}
-		return fmt.Sprintf(`
-╔═══════════════════════╗
-║   ¡GANADOR!          ║
-║   %s         ║
-║   %d - %d               ║
-╚═══════════════════════╝
-
-r: reiniciar  q: menu
-`, winner, p.score1, p.score2)
-	}
-
-	status := "▶ JUGANDO"
-	if p.inverted {
-		status = "⏸ PAUSA"
-	}
-
-	s := fmt.Sprintf("🏓 PONG  %s  %d | %d\n\n", status, p.score1, p.score2)
-
+	var board strings.Builder
 	canvas := make([][]rune, p.height)
 	for i := range canvas {
 		canvas[i] = make([]rune, p.width)
@@ -193,9 +151,28 @@ r: reiniciar  q: menu
 	}
 
 	for _, row := range canvas {
-		s += " " + string(row) + "\n"
+		board.WriteString("│")
+		for _, c := range row {
+			board.WriteRune(c)
+		}
+		board.WriteString("│\n")
 	}
 
-	s += "\nW/A/S/D: Jug1  ↑/↓/K/J: Jug2  p: pausa  q: menu"
-	return s
+	boardStr := board.String()
+	boardBox := BoxStyle.Width(60).Align(lipgloss.Center).Render(boardStr)
+
+	headerTitle := TitleStyle.Render("🏓 PONG")
+	headerScore := HeaderScoreStyle.Render(fmt.Sprintf("%d  |  %d", p.score1, p.score2))
+
+	if p.gameOver {
+		winner := "JUGADOR 1"
+		if p.score2 > p.score1 {
+			winner = "JUGADOR 2"
+		}
+		content := fmt.Sprintf("\n  GANADOR: %s\n\n  %d | %d", winner, p.score1, p.score2)
+		gameOverBox := BoxStyle.Width(30).Align(lipgloss.Center).Render(content)
+		return headerTitle + "\n" + headerScore + "\n\n" + gameOverBox + "\n" + HelpStyle.Render("R: reiniciar  •  Q: menu")
+	}
+
+	return headerTitle + "\n" + headerScore + "\n\n" + boardBox + "\n" + HelpStyle.Render("W/A/S/D: Jug1  •  ↑/↓/K/J: Jug2  •  P: pausa  •  Q: menu")
 }

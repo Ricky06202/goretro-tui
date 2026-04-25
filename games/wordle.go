@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var words = []string{
 	"GOLPE", "MUSEO", "LIBRE", "PLANO", "VISTA",
 	"LENTO", "RADIO", "MUNDO", "PLAYA", "SALSA",
 	"LUJOS", "CIELO", "BARCO", "NADAR", "SILLA",
-	"LIBRO", "PAPEL", "CALOR", "FRENO", "TRENA",
 }
 
 type Wordle struct {
@@ -27,7 +27,6 @@ type Wordle struct {
 
 func NewWordle() *Wordle {
 	secret := words[rand.Intn(len(words))]
-
 	return &Wordle{
 		secret:      secret,
 		maxAttempts: 6,
@@ -113,56 +112,53 @@ func (w *Wordle) check(guess string) string {
 }
 
 func (w *Wordle) View() string {
-	s := fmt.Sprintf("📝 WORDLE  Intentos: %d/6\n\n", w.attempts)
+		var grid strings.Builder
 
 	for i := 0; i < w.maxAttempts; i++ {
-		line := "_____"
+		row := ""
 		if i < len(w.guesses) {
 			guess := w.guesses[i]
 			result := w.check(guess)
 			for j := 0; j < 5; j++ {
-				switch result[j] {
+				color := result[j]
+				emoji := ""
+				switch color {
 				case 'G':
-					line = changeChar(line, j, 'G', guess[j])
+					emoji = "🟩"
 				case 'Y':
-					line = changeChar(line, j, 'Y', guess[j])
+					emoji = "🟨"
 				default:
-					line = changeChar(line, j, 'X', guess[j])
+					emoji = "⬛"
 				}
+				row += emoji + string(guess[j]) + " "
 			}
 		} else if i == len(w.guesses) && len(w.current) > 0 {
-			line = w.current + strings.Repeat(" ", 5-len(w.current))
+			for _, c := range w.current {
+				row += "⬛" + string(c) + " "
+			}
+			for j := len(w.current); j < 5; j++ {
+				row += "⬛_ "
+			}
+		} else {
+			row = "⬛_ ⬛_ ⬛_ ⬛_ ⬛_"
 		}
-		s += line + "\n"
+		grid.WriteString(row + "\n")
 	}
 
-	s += "\nVerde: correcto  Amarillo:的位置  Gris: no existe\n"
-	s += "Enter: enviar  Backspace: borrar  q: menu"
+	gridStr := BoxStyle.Width(60).Align(lipgloss.Center).Render(grid.String())
+
+	headerTitle := TitleStyle.Render("📝 WORDLE")
+	headerScore := HeaderScoreStyle.Render(fmt.Sprintf("Intentos: %d/6", w.attempts))
 
 	if w.gameOver {
+		resultBox := BoxStyle.Width(25).Align(lipgloss.Center)
 		if w.win {
-			s = "📝 WORDLE  ¡GANASTE!\n\n" + s
-		} else {
-			s = fmt.Sprintf("📝 WORDLE  PERDISTE! Era: %s\n\n%s\n", w.secret, s)
+			content := fmt.Sprintf("\n\n  ¡GANASTE!\n\n  Intentos: %d\n\n", w.attempts)
+			return headerTitle + "\n" + headerScore + "\n\n" + resultBox.Render(content) + "\n" + HelpStyle.Render("R: reiniciar  Q: menu")
 		}
+		content := fmt.Sprintf("\n\n  PERDISTE\n\n  Era: %s\n\n", w.secret)
+		return headerTitle + "\n" + headerScore + "\n\n" + resultBox.Render(content) + "\n" + HelpStyle.Render("R: reiniciar  Q: menu")
 	}
 
-	return s
-}
-
-func changeChar(s string, i int, color byte, r byte) string {
-	colors := map[byte]string{
-		'G': "🟩",
-		'Y': "🟨",
-		'X': "⬛",
-	}
-	result := ""
-	for j := 0; j < 5; j++ {
-		if j == i {
-			result += colors[color] + string(r)
-		} else {
-			result += " _ "
-		}
-	}
-	return result
+	return headerTitle + "\n" + headerScore + "\n\n" + gridStr + "\n" + HelpStyle.Render("Type: escribir  •  Enter: enviar  •  Backspace: borrar  •  Q: menu")
 }
