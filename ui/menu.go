@@ -62,8 +62,10 @@ func (m *GameMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.submodel.Init()
 			case 1:
 				m.submodel = games.NewTetris()
+				return m, m.submodel.Init()
 			case 2:
 				m.submodel = games.NewPong()
+				return m, m.submodel.Init()
 			case 3:
 				m.submodel = games.NewMemory()
 			case 4:
