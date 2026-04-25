@@ -12,14 +12,26 @@ import (
 
 type Tetris struct {
 	board    [][]int
+	boardCol [][]lipgloss.Color
 	width   int
 	height  int
 	piece   []Point
+	pieceCol lipgloss.Color
 	px, py  int
 	score   int
 	lines   int
 	gameOver bool
 	paused  bool
+}
+
+var pieceColors = []lipgloss.Color{
+	NeonCyan,   // I - cyan
+	NeonPurple, // T - purple
+	NeonGreen, // L - green
+	NeonPink,  // J - pink
+	NeonCyan,  // O - cyan
+	lipgloss.Color("#FFA500"), // S - orange
+	lipgloss.Color("#FF0000"), // Z - red
 }
 
 var tetrominoes = [][]Point{
@@ -34,14 +46,17 @@ var tetrominoes = [][]Point{
 
 func NewTetris() *Tetris {
 	board := make([][]int, 22)
+	boardCol := make([][]lipgloss.Color, 22)
 	for i := range board {
 		board[i] = make([]int, 25)
+		boardCol[i] = make([]lipgloss.Color, 25)
 	}
 
 	t := &Tetris{
-		board:  board,
-		width:  25,
-		height: 22,
+		board:    board,
+		boardCol: boardCol,
+		width:   25,
+		height:  22,
 	}
 	t.spawnPiece()
 	return t
@@ -147,6 +162,7 @@ func (t *Tetris) lockPiece() {
 		y := t.py + p.Y
 		if y >= 0 && y < t.height && x >= 0 && x < t.width {
 			t.board[y][x] = 1
+			t.boardCol[y][x] = t.pieceCol
 		}
 	}
 }
@@ -176,40 +192,34 @@ func (t *Tetris) spawnPiece() {
 	for i := range t.piece {
 		t.piece[i] = tetrominoes[r][i]
 	}
+	t.pieceCol = pieceColors[r]
 	t.px = t.width/2 - 2
 	t.py = -2
 }
 
 func (t *Tetris) View() string {
 	var board strings.Builder
-	disp := make([][]rune, t.height)
-	for i := range disp {
-		disp[i] = make([]rune, t.width)
-		for j := 0; j < t.width; j++ {
-			disp[i][j] = ' '
-		}
-	}
 
 	for y := 0; y < t.height; y++ {
-		for x := 0; x < t.width; x++ {
-			if t.board[y][x] == 1 {
-				disp[y][x] = '█'
-			}
-		}
-	}
-
-	for _, p := range t.piece {
-		x := t.px + p.X
-		y := t.py + p.Y
-		if y >= 0 && y < t.height && x >= 0 && x < t.width {
-			disp[y][x] = '▒'
-		}
-	}
-
-	for _, row := range disp {
 		board.WriteString("│")
-		for _, c := range row {
-			board.WriteRune(c)
+		for x := 0; x < t.width; x++ {
+			isPiece := false
+			pieceCol := t.pieceCol
+			for _, p := range t.piece {
+				if t.px+p.X == x && t.py+p.Y == y {
+					isPiece = true
+					break
+				}
+			}
+			if isPiece {
+				cell := lipgloss.NewStyle().Foreground(pieceCol).Render("▒")
+				board.WriteString(cell)
+			} else if t.board[y][x] == 1 {
+				cell := lipgloss.NewStyle().Foreground(t.boardCol[y][x]).Render("█")
+				board.WriteString(cell)
+			} else {
+				board.WriteString(" ")
+			}
 		}
 		board.WriteString("│\n")
 	}
